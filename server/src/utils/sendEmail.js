@@ -1,37 +1,42 @@
-// Email helper that sends real SMTP mail when configured and logs previews during local development.
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
-// Build an SMTP transport only when mail credentials are configured.
-function buildTransport() {
-  if (!process.env.SMTP_HOST) {
+function getClient() {
+  if (!process.env.RESEND_API_KEY) {
     return null;
   }
 
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: false,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS
-    }
-  });
+  return new Resend(process.env.RESEND_API_KEY);
 }
 
-// Send a transactional email or log a local preview when SMTP is unavailable.
 export async function sendEmail({ to, subject, html }) {
-  const transport = buildTransport();
+  const client = getClient();
 
-  if (!transport) {
-    console.log('EMAIL PREVIEW');
-    console.log({ to, subject, html });
+  if (!client) {
+    console.log('EMAIL PREVIEW', { to, subject });
     return;
   }
 
-  await transport.sendMail({
-    from: process.env.MAIL_FROM || 'noreply@garnish-demo.com',
-    to,
-    subject,
-    html
-  });
+  const from = process.env.MAIL_FROM;
+
+  if (!from) {
+    console.error('MAIL_FROM is not set');
+    return;
+  }
+
+  try {
+    const response = await client.emails.send({
+      from,
+      to,
+      subject,
+      html
+    });
+
+    if (response.error) {
+      console.error('Resend API error:', response.error);
+    }
+
+    return response;
+  } catch (err) {
+    console.error('Resend sendEmail failed:', err.message);
+  }
 }
