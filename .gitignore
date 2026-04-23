@@ -7,3 +7,5 @@ build/
 web/dist/
 web/.vite/
 .vscode/
+*.tsbuildinfo
+vite.config.d.ts
